@@ -40,9 +40,9 @@ namespace GraphPlaner
             graph.Edges = new List<GraphEdge>()
                           {
                               new GraphEdge(graph.Vertexes[0],graph.Vertexes[1]),
-                              new GraphEdge(graph.Vertexes[0],graph.Vertexes[2]),
-                              new GraphEdge(graph.Vertexes[0],graph.Vertexes[3]),
-                              new GraphEdge(graph.Vertexes[0],graph.Vertexes[4]),
+                              new GraphEdge(graph.Vertexes[3],graph.Vertexes[2]),
+                              new GraphEdge(graph.Vertexes[2],graph.Vertexes[3]),
+                              new GraphEdge(graph.Vertexes[1],graph.Vertexes[4]),
                           };
             Random rnd = new Random();
 
@@ -50,7 +50,7 @@ namespace GraphPlaner
             {
                 VisualGraphVertex vertex = new VisualGraphVertex(DrawEllipse(), graphVertex);
                 vertexAccord.Add(graphVertex, vertex);
-                vertex.Locate(rnd.Next(200), rnd.Next(200));
+                vertex.Locate(rnd.Next(400), rnd.Next(400));
             }
             Physic physic = new Physic(graph, vertexAccord);
 
@@ -98,12 +98,9 @@ namespace GraphPlaner
             {
                 _physicAccord.Add(graphVertex, new PhysicVertex()
                                               {
-                                                  Mass = random.Next(20,50),
-                                                  Acceleration = new Vector(0, 9.8)
+                                                  Mass = random.Next(20, 50),
                                               });
             }
-
-
         }
         Random random = new Random();
         private Dictionary<GraphVertex, VisualGraphVertex> _vertexAccord;
@@ -116,22 +113,42 @@ namespace GraphPlaner
                 var physVert = _physicAccord[vertex];
                 var visVert = _vertexAccord[vertex];
 
-                if (visVert.Vertex.Y < 500)
+
+                foreach (var graphVertex in _graph.Vertexes)
                 {
-                    physVert.Velocity.Y = physVert.Velocity.Y + physVert.Acceleration.Y * span.TotalSeconds;
+                    if (graphVertex == vertex) continue;
+                    var visSecVErtex = _vertexAccord[graphVertex];
+
+                    var rsq = Math.Pow(visVert.X - visSecVErtex.X, 2) + Math.Pow(visVert.Y - visSecVErtex.Y, 2);
+
+                    physVert.NetPower.X += 200 * (visVert.X - visSecVErtex.X) / rsq;
+                    physVert.NetPower.Y += 200 * (visVert.Y - visSecVErtex.Y) / rsq;
                 }
-                else
+
+                var neighbors = _graph.Edges.Where(e => e.FromVertex == vertex).Select(e => e.ToVertex)
+                    .Union(_graph.Edges.Where(e => e.ToVertex == vertex).Select(e => e.FromVertex)).Distinct().ToList();
+                foreach (var graphVertex in neighbors)
                 {
-                    physVert.Velocity.Y = -(physVert.Velocity.Y + physVert.Acceleration.Y * span.TotalSeconds);
-                    physVert.Velocity.Y += physVert.Mass/10;
-                    visVert.Vertex.Y = 500;
+                    var visSecVErtex = _vertexAccord[graphVertex];
+                    physVert.NetPower.X += -0.06 * (visSecVErtex.X - visVert.X);
+                    physVert.NetPower.Y += -0.06 * (visSecVErtex.Y - visVert.Y);
                 }
 
+                physVert.Velocity.X = physVert.Velocity.X + physVert.NetPower.X;
+                physVert.Velocity.Y = physVert.Velocity.Y + physVert.NetPower.Y;
 
-                var newX = visVert.Vertex.X;
-                var newY = visVert.Vertex.Y + physVert.Velocity.Y * 1 / 2;
+                //if (visVert.Y > 500)
+                //{
+                //    physVert.Velocity.Y = -(physVert.Velocity.Y);
+                //}
 
+                //if (visVert.X > 500)
+                //{
+                //    physVert.Velocity.X = -(physVert.Velocity.X);
+                //}
 
+                var newX = visVert.X + physVert.Velocity.X;
+                var newY = visVert.Y + physVert.Velocity.Y;
 
                 visVert.Locate(newX, newY);
             }
@@ -143,7 +160,7 @@ namespace GraphPlaner
     {
         public Double Mass;
         public Vector Velocity;
-        public Vector Acceleration;
+        public Vector NetPower;
     }
 
     public class VisualGraphVertex
@@ -165,10 +182,12 @@ namespace GraphPlaner
             Canvas.SetTop(Visual, y);
             Canvas.SetLeft(Visual, x);
 
-            Vertex.X = x;
-            Vertex.Y = y;
+            X = x;
+            Y = y;
         }
 
+        public Double X { get; private set; }
+        public Double Y { get; private set; }
 
 
         public GraphVertex Vertex { get; private set; }
@@ -183,8 +202,6 @@ namespace GraphPlaner
 
     public class GraphVertex
     {
-        public Double X { get; set; }
-        public Double Y { get; set; }
     }
 
     public class GraphEdge
